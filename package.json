@@ -1,6 +1,6 @@
 {
   "name": "zb-email-verifier",
-  "description": "Promise-based library for verify an email address exits via SMTP",
+  "description": "Promise-based library for verify an email address existence via SMTP",
   "version": "0.0.1",
   "author": {
     "name": "ZIGBANG",
