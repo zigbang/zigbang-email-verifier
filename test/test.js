@@ -8,7 +8,7 @@ describe('#verify()', function() {
       helo: 'zigbang.com',
       from: 'cs@zigbang.com',
       to: 'cs@zigbang.com',
-      debug: false
+      debug: true
     }).then(result => {
       if(result === 'EXIST') {
         done();
@@ -17,4 +17,9 @@ describe('#verify()', function() {
       }
     });
   });
+
+  // EXIST
+  // NOT_EXIST
+  // INVALID
+  // BLOCK
 });

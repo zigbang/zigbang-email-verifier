@@ -49,7 +49,9 @@ const netConnect = (options => {
         },
         response: responseQueue.flush
       });
-    });
+    }).on('error', (err) => {
+      reject(err);
+    });;
 
     client.on('data', (() => {
       let response = '';
@@ -61,6 +63,8 @@ const netConnect = (options => {
         }
       };
     })());
+
+
 
     client.on('end', () => {
       fnNetEnd();
@@ -138,6 +142,8 @@ module.exports = {
       }).finally(() => {
         netConn.end();
       });
+    }).catch(err => {
+      return 'BLOCK';
     });
   }
 };
