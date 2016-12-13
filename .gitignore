@@ -1,3 +1,13 @@
-# Created by .ignore support plugin (hsz.mobi)
 node_modules
 yarn.lock
+.idea
+!.idea/codeStyleSetting.xml
+!.idea/inspectionProfiles/profiles_settings.xml
+!.idea/inspectionProfiles/Zigbang.xml
+!.idea/codeStyleSettings.xml
+!.idea/jsLibraryMappings.xml
+!.idea/misc.xml
+!.idea/modules.xml
+!.idea/vcs.xml
+!.idea/watcherTasks.xml
+!.idea/zigbang-email-verifier.iml

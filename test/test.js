@@ -8,7 +8,8 @@ describe('#verify()', function() {
       helo: 'zigbang.com',
       from: 'cs@zigbang.com',
       to: 'cs@zigbang.com',
-      debug: true
+      debug: true,
+      timeout: 500
     }).then(result => {
       if(result === 'EXIST') {
         done();
