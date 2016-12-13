@@ -1,0 +1,20 @@
+{
+  "extends": ["zigbang"],
+  "parserOptions": {
+    "ecmaVersion": 6
+  },
+  "env": {
+    "node": true
+  },
+  "rules":{
+    "no-console": "off",
+    "keyword-spacing": ["warn", { "overrides": { "if": { "after": false }, "for": { "after": false }, "while": { "after": false }, "catch": { "after": false } } }],
+    "key-spacing": ["warn", { "beforeColon": false, "afterColon": true }],
+    "comma-spacing": ["warn", { "before": false, "after": true}],
+    "global-require": "off",
+    "no-shadow": "off",
+    "complexity": ["warn", 30],
+    "no-empty-function": ["error", { "allow": ["arrowFunctions"] }],
+    "semi":["error", "always"]
+  }
+}
