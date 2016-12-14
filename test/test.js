@@ -23,4 +23,5 @@ describe('#verify()', function() {
   // NOT_EXIST
   // INVALID
   // BLOCK
+  // CONN_FAIL
 });

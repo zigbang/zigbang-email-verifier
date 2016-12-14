@@ -18,12 +18,14 @@ zbEmailVerifier.verify({
   helo: helo,
   from: from,
   to: checkEmail,
-  debug: false
+  debug: false,
+  timeout: 500
 }).then(result => {
   console.log(result);
   // EXIST
   // NOT_EXIST
   // INVALID
   // BLOCK
+  // CONN_FAIL
 });
 ```

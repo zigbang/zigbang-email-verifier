@@ -36,7 +36,14 @@ const netConnect = (options => {
       };
     })();
 
-    const client = net.createConnection(options, () => {
+    const connOption = {
+      port: options.port,
+      host: options.host
+    };
+
+    const timeOut = options.timeout ? options.timeout : 0;
+
+    const client = net.createConnection(connOption, () => {
       return resolve({
         write: (msg) => {
           client.write(msg + '\r\n');
@@ -53,7 +60,7 @@ const netConnect = (options => {
       reject(err);
     });
 
-    client.setTimeout(500,() => {
+    client.setTimeout(timeOut, () => {
       client.end();
       client.destroy(new Error('timeout'));
     });
@@ -96,7 +103,7 @@ module.exports = {
       const exchange = _(results).sortBy(v => v.priority).take(1).value()[0].exchange;
       debug('\t' + exchange);
 
-      return netConnect({port: 25, host: exchange,timeout:500});
+      return netConnect({port: 25, host: exchange, timeout: opts.timeout});
     }).then(netConn => {
 
       debug('CONNECTED SMTP SERVER');
@@ -146,8 +153,7 @@ module.exports = {
       }).finally(() => {
         netConn.end();
       });
-    }).catch(err => {
-      console.log(err.stack);
+    }).catch(() => {
       return 'CONN_FAIL';
     });
   }
