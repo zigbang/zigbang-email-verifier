@@ -9,7 +9,7 @@ describe('#verify()', function() {
       from: 'cs@zigbang.com',
       to: 'cs@zigbang.com',
       debug: true,
-      timeout: 500
+      timeout: 1500
     }).then(result => {
       if(result === 'EXIST') {
         done();
@@ -19,9 +19,14 @@ describe('#verify()', function() {
     });
   });
 
+  // INVALID
+  // MXRECORD_TIMEOUT
+  // MXRECORD_FAIL
+  // CONN_FAIL
+  // CONN_TIMEOUT
+  // VERIFY_TIMEOUT
+  // VERIFY_FAIL
   // EXIST
   // NOT_EXIST
-  // INVALID
-  // BLOCK
-  // CONN_FAIL
+  // UNKNOWN
 });
