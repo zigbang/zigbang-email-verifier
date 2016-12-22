@@ -22,15 +22,17 @@ zbEmailVerifier.verify({
   timeout: 1500
 }).then(result => {
   console.log(result);
-  // INVALID
-// MXRECORD_TIMEOUT
-// MXRECORD_FAIL
-// CONN_FAIL
-// CONN_TIMEOUT
-// VERIFY_TIMEOUT
-// VERIFY_FAIL
-// EXIST
-// NOT_EXIST
-// UNKNOWN
+
+  // INVALID - email regexp validation failed
+  // EXIST - email is existence
+  // NOT_EXIST - email is not existence
+
+  // MXRECORD_TIMEOUT - resolve mx record timeout
+  // MXRECORD_FAIL - resolve mx record fail
+  // CONN_FAIL - connect fail smtp
+  // CONN_TIMEOUT - connect timeout smtp
+  // VERIFY_TIMEOUT
+  // VERIFY_FAIL
+  // UNKNOWN
 });
 ```
