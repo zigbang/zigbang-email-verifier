@@ -26,6 +26,7 @@ zbEmailVerifier.verify({
   // INVALID - email regexp validation failed
   // EXIST - email is existence
   // NOT_EXIST - email is not existence
+  // CATCH_ALL - catch all smtp server
 
   // MXRECORD_TIMEOUT - resolve mx record timeout
   // MXRECORD_FAIL - resolve mx record fail

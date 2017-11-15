@@ -9,6 +9,7 @@ describe('#verify()', function() {
       from: 'cs@zigbang.com',
       to: 'cs@zigbang.com',
       debug: true,
+      catchalltest: true,
       timeout: 1500
     }).then(result => {
       if(result === 'EXIST') {
@@ -28,5 +29,6 @@ describe('#verify()', function() {
   // VERIFY_FAIL
   // EXIST
   // NOT_EXIST
+  // CATCH_ALL
   // UNKNOWN
 });

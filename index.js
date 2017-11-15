@@ -33,6 +33,12 @@ module.exports = {
     const debug = opts.debug ? (_.isFunction(opts.debug) ? opts.debug : console.info) : () => {};
     const timeout = opts.timeout ? opts.timeout : 5000;
 
+    const generateRandomEmail = function() {
+      debug('Domain...', opts.helo);
+      let radomString = randomstring.generate(32);
+      return radomString + '@' + opts.helo;
+    };
+
     return new P((resolve, reject) => {
       const jobDnsResolveMx = dnsResolveMx(emailHost).then(results => {
         if(_.isEmpty(results)) {
@@ -96,26 +102,26 @@ module.exports = {
         }).then(resmsg => {
           debug('\t' + resmsg[0]);
           if(resmsg[0].substr(0, 3) === '250') {
-            debug('MAILBOX EXIST..CHECKING FOR CATCHALL');
-            let randomUser = generateRandomEmail();
-            debug('RANDOM USER: ', randomUser);
-            const writeMsg = `RCPT TO: <${randomUser}>`;
-            debug(writeMsg);
-            netConn.write(writeMsg);
-            return netConn.response();
+            if(opts.catchalltest === true) {
+              debug('MAILBOX EXIST..CHECKING FOR CATCHALL');
+              let randomUser = generateRandomEmail();
+              debug('RANDOM USER: ', randomUser);
+              const writeMsg = `RCPT TO: <${randomUser}>`;
+              debug(writeMsg);
+              netConn.write(writeMsg);
+              return netConn.response().then(resmsg => {
+                if(resmsg[0].substr(0, 3) === '250') {
+                  return 'CATCH_ALL';
+                } else {
+                  return 'EXIST';
+                }
+              });
+            } else {
+              return 'EXIST';
+            }
           } else {
             return 'NOT_EXIST';
           }
-        }).then(resmsg => {
-
-          if(resmsg == 'NOT_EXIST') {
-            return resmsg;
-          } else if(resmsg[0].substr(0, 3) === '250') {
-            return "CATCH_ALL";
-          } else {
-            return "EXIST";
-          }
-
         }).finally(() => {
           netConn.end();
         });
@@ -147,12 +153,6 @@ module.exports = {
 
         return resolve('UNKNOWN');
       }, timeout);
-
-      const generateRandomEmail = function() {
-        debug('Domain...', opts.helo);
-        let radomString = randomstring.generate(32);
-        return radomString + '@' + opts.helo;
-      };
 
       mainJob.finally(() => {
         if(!mainJob.isCancelled()) {
