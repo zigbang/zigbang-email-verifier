@@ -3,15 +3,16 @@
 const dns = require('dns');
 const P = require('bluebird');
 const _ = require('lodash');
+const randomstring = require('randomstring');
 const netsend = require('./lib/netsend');
 
 class VerifyError extends Error {
   constructor ( message, extra ) {
-    super()
-    Error.captureStackTrace( this, this.constructor )
-    this.name = 'CustomError'
-    this.message = message
-    if ( extra ) this.extra = extra;
+    super();
+    Error.captureStackTrace( this, this.constructor );
+    this.name = 'CustomError';
+    this.message = message;
+    if( extra ) this.extra = extra;
   }
 }
 P.config({cancellation: true});
@@ -35,11 +36,11 @@ module.exports = {
     return new P((resolve, reject) => {
       const jobDnsResolveMx = dnsResolveMx(emailHost).then(results => {
         if(_.isEmpty(results)) {
-          throw new VerifyError('','MXRECORD_FAIL');
+          throw new VerifyError('', 'MXRECORD_FAIL');
         }
         return results;
-      },() => {
-        throw new VerifyError('','MXRECORD_FAIL');
+      }, () => {
+        throw new VerifyError('', 'MXRECORD_FAIL');
       });
 
       const jobNetConnect = jobDnsResolveMx.then(results => {
@@ -49,7 +50,7 @@ module.exports = {
         debug('\t' + exchange);
 
         return netsend({port: 25, host: exchange}).catch(() => {
-          throw new VerifyError('','CONN_FAIL');
+          throw new VerifyError('', 'CONN_FAIL');
         });
       });
 
@@ -60,7 +61,7 @@ module.exports = {
           debug('\t' + resmsg[0]);
 
           if(resmsg[0].substr(0, 3) !== '220') {
-            throw new VerifyError('','VERIFY_FAIL');
+            throw new VerifyError('', 'VERIFY_FAIL');
           }
 
           const writeMsg = 'HELO ' + opts.helo;
@@ -72,7 +73,7 @@ module.exports = {
           debug('\t' + resmsg[0]);
 
           if(resmsg[0].substr(0, 3) !== '250') {
-            throw new VerifyError('','VERIFY_FAIL');
+            throw new VerifyError('', 'VERIFY_FAIL');
           }
 
           const writeMsg = `MAIL FROM: <${opts.from}>`;
@@ -84,8 +85,9 @@ module.exports = {
           debug('\t' + resmsg[0]);
 
           if(resmsg[0].substr(0, 3) !== '250') {
-            throw new VerifyError('','VERIFY_FAIL');
+            throw new VerifyError('', 'VERIFY_FAIL');
           }
+
           const writeMsg = `RCPT TO: <${opts.to}>`;
           debug(writeMsg);
           netConn.write(writeMsg);
@@ -94,10 +96,26 @@ module.exports = {
         }).then(resmsg => {
           debug('\t' + resmsg[0]);
           if(resmsg[0].substr(0, 3) === '250') {
-            return 'EXIST';
+            debug('MAILBOX EXIST..CHECKING FOR CATCHALL');
+            let randomUser = generateRandomEmail();
+            debug('RANDOM USER: ', randomUser);
+            const writeMsg = `RCPT TO: <${randomUser}>`;
+            debug(writeMsg);
+            netConn.write(writeMsg);
+            return netConn.response();
           } else {
             return 'NOT_EXIST';
           }
+        }).then(resmsg => {
+
+          if(resmsg == 'NOT_EXIST') {
+            return resmsg;
+          } else if(resmsg[0].substr(0, 3) === '250') {
+            return "CATCH_ALL";
+          } else {
+            return "EXIST";
+          }
+
         }).finally(() => {
           netConn.end();
         });
@@ -105,7 +123,7 @@ module.exports = {
 
       const mainJob = jobVerify.then(results => {
         resolve(results);
-      }).catch(VerifyError,(err) => {
+      }).catch(VerifyError, (err) => {
         resolve(err.extra);
       }).catch((err) => {
         debug(err);
@@ -129,6 +147,12 @@ module.exports = {
 
         return resolve('UNKNOWN');
       }, timeout);
+
+      const generateRandomEmail = function() {
+        debug('Domain...', opts.helo);
+        let radomString = randomstring.generate(32);
+        return radomString + '@' + opts.helo;
+      };
 
       mainJob.finally(() => {
         if(!mainJob.isCancelled()) {
