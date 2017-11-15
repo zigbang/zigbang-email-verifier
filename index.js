@@ -34,9 +34,9 @@ module.exports = {
     const timeout = opts.timeout ? opts.timeout : 5000;
 
     const generateRandomEmail = function() {
-      debug('Domain...', opts.helo);
+      debug('Domain...', emailHost);
       let radomString = randomstring.generate(32);
-      return radomString + '@' + opts.helo;
+      return radomString + '@' + emailHost;
     };
 
     return new P((resolve, reject) => {
