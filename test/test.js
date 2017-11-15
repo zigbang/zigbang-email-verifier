@@ -23,12 +23,13 @@ describe('#verify()', function() {
   // INVALID
   // MXRECORD_TIMEOUT
   // MXRECORD_FAIL
+  // CATCH_ALL
+
   // CONN_FAIL
   // CONN_TIMEOUT
   // VERIFY_TIMEOUT
   // VERIFY_FAIL
   // EXIST
   // NOT_EXIST
-  // CATCH_ALL
   // UNKNOWN
 });

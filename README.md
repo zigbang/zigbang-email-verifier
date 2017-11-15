@@ -18,8 +18,9 @@ zbEmailVerifier.verify({
   helo: helo,
   from: from,
   to: checkEmail,
-  debug: false,
-  timeout: 1500
+  debug: false, // default false
+  catchalltest : true, // default false
+  timeout: 1500 // default 5000
 }).then(result => {
   console.log(result);
 
