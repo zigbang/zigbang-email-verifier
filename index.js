@@ -119,7 +119,10 @@ module.exports = {
             } else {
               return 'EXIST';
             }
-          } else {
+          } else if (resmsg[0].indexOf('spam') !== -1 || resmsg[0].indexOf('poor reputation') !== -1) {
+            return 'SPAM BLOCKED';
+          } 
+          else {
             return 'NOT_EXIST';
           }
         }).finally(() => {
