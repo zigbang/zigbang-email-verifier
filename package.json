@@ -1,7 +1,7 @@
 {
   "name": "zb-email-verifier",
   "description": "Promise-based library for verify an email address existence via SMTP",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "author": {
     "name": "ZIGBANG",
     "url": "http://www.zigbang.com/"
@@ -22,14 +22,12 @@
   },
   "homepage": "https://github.com/zigbang/zigbang-email-verifier",
   "dependencies": {
-    "bluebird": "^3.4.6",
-    "lodash": "^4.17.2",
+    "bluebird": "^3.5.5",
+    "lodash": "^4.17.15",
     "randomstring": "^1.1.5"
   },
   "devDependencies": {
-    "eslint": "^3.12.0",
-    "eslint-config-zigbang": "^0.1.4",
-    "mocha": "^3.2.0"
+    "mocha": "^6.2.0"
   },
   "scripts": {
     "test": "mocha"
