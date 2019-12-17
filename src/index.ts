@@ -1,6 +1,6 @@
 import * as dns from "dns"
 
-import * as _debug from "debug"
+import _debug from "debug"
 import _ from "lodash"
 import randomstring from "randomstring"
 import P from "bluebird"
@@ -12,7 +12,7 @@ const debug = _debug.debug("email-verifier")
 
 const dnsResolveMx = P.promisify(dns.resolveMx, { context: dns });
 
-interface Options {
+export interface Options {
 	helo: string
 	from: string
 	to: string
@@ -63,7 +63,7 @@ export async function verify(opts: Options) {
 
 		setTimeout(() => {
 			const resolved = mainJob.isResolved()
-			debug(`setTimeout() resolved=${resolved}`)
+			debug(`TIMED OUT resolved=${resolved}`)
 			if (resolved) return
 
 			if (jobDnsResolveMx && jobDnsResolveMx.isPending()) {
@@ -113,6 +113,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 			throw new VerifyError('', 'VERIFY_FAIL')
 		}
 
+		// HELO
 		let writeMsg = 'HELO ' + opts.helo
 		debug(writeMsg);
 		netConn.write(writeMsg)
@@ -123,6 +124,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 			throw new VerifyError('', 'VERIFY_FAIL')
 		}
 
+		// MAIL FROM
 		writeMsg = `MAIL FROM: <${opts.from}>`
 		debug(writeMsg);
 		netConn.write(writeMsg)
@@ -133,6 +135,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 			throw new VerifyError('', 'VERIFY_FAIL')
 		}
 
+		// RCPT TO
 		writeMsg = `RCPT TO: <${opts.to}>`
 		debug(writeMsg)
 		netConn.write(writeMsg)
@@ -141,12 +144,12 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		debug(resmsg[0])
 		if (resmsg[0].substr(0, 3) === '250') {
 			if (opts.catchalltest === true) {
+				// RCPT TO
 				debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
-				let randomUser = generateRandomEmail(emailHost)
-				debug('RANDOM USER: ', randomUser);
-				const writeMsg = `RCPT TO: <${randomUser}>`
-				debug(writeMsg);
-				netConn.write(writeMsg);
+				const writeMsg = `RCPT TO: <${generateRandomEmail(emailHost)}>`
+				debug(writeMsg)
+				netConn.write(writeMsg)
+
 				resmsg = await netConn.response()
 				if (resmsg[0].substr(0, 3) === '250') {
 					return 'CATCH_ALL'
