@@ -48,7 +48,7 @@ export async function verify(opts: Options) {
 				if (netConn) netConn.end()
 			}
 		})()
-
+		
 		const timeout = opts.timeout ? opts.timeout : 5000
 		setTimeout(() => {
 			if (mainJob.isResolved()) return
