@@ -9,5 +9,7 @@ module.exports = {
 			lines: 0,
 			statements: 0
 		}
-	}
-};
+	},
+	collectCoverage: true,
+	coverageReporters: ["html"]
+}

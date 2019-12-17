@@ -16,6 +16,18 @@ class TestSuite {
 		expect(result).toBe('EXIST')
 	}
 
+	@test("EXIST with catchall")
+	async validWithCatchall() {
+		const host = "zigbang.com"
+		const result = await verify({
+			helo: host,
+			from: `cs@${host}`,
+			to: `cs@${host}`,
+			catchalltest: true
+		})
+		expect(result).toBe('EXIST')
+	}
+
 	@test(`INVALID to`)
 	async invalid() {
 		const host = "zigbang.com"
@@ -36,5 +48,17 @@ class TestSuite {
 			to: `invalid@${host}`
 		})
 		expect(result).toBe("MXRECORD_FAIL")
+	}
+
+	@test("MXRECORD_TIMEOUT")
+	async timeout() {
+		const host = "zigbang.com"
+		const result = await verify({
+			helo: host,
+			from: `invalid@${host}`,
+			to: `invalid@${host}`,
+			timeout: 1
+		})
+		expect(result).toBe("MXRECORD_TIMEOUT")
 	}
 }

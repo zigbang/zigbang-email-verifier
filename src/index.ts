@@ -137,6 +137,9 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		} else {
 			return 'NOT_EXIST'
 		}
+	} catch (e) {
+		if (_debug.enabled(debug.namespace)) console.error(e)
+		throw new Error("VERIFY_FAIL")
 	} finally {
 		netConn.end()
 	}

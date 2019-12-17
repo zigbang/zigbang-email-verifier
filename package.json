@@ -1,5 +1,5 @@
 {
-  "name": "@zigbang/email-verifier",
+  "name": "zb-email-verifier",
   "description": "Promise-based library for verify an email address existence via SMTP",
   "version": "0.6.4",
   "author": {
@@ -16,6 +16,7 @@
   ],
   "license": "MIT",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/zigbang/zigbang-email-verifier.git"
@@ -39,7 +40,8 @@
     "typescript": "^3.7.3"
   },
   "scripts": {
-    "prepublish": "tsc",
+    "prepare": "npm run build",
+    "build": "tsc",
     "test": "jest"
   }
 }
