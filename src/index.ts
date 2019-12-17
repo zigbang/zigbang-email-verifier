@@ -14,163 +14,163 @@ const dnsResolveMx = P.promisify(dns.resolveMx, { context: dns });
 
 interface Options {
 	helo: string
-    from: string
-    to: string
-    debug?: boolean
-    catchalltest?: boolean
-    timeout?: number
+	from: string
+	to: string
+	debug?: boolean
+	catchalltest?: boolean
+	timeout?: number
 }
 
 export async function verify(opts: Options) {
-    const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; // eslint-disable-line
+	const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; // eslint-disable-line
 
-    if (!emailRegex.test(opts.to)) {
-        return "INVALID"
-    }
+	if (!emailRegex.test(opts.to)) {
+		return "INVALID"
+	}
 
-    const emailSplited = opts.to.split('@')
-    const emailHost = emailSplited[1]
-    const timeout = opts.timeout ? opts.timeout : 5000
+	const emailSplited = opts.to.split('@')
+	const emailHost = emailSplited[1]
+	const timeout = opts.timeout ? opts.timeout : 5000
 
-    let jobDnsResolveMx: P<dns.MxRecord[]>
-    let results: dns.MxRecord[]
-    try {
-        jobDnsResolveMx = dnsResolveMx(emailHost)
-        results = await jobDnsResolveMx
-        if (_.isEmpty(results)) {
-            throw new VerifyError('', 'MXRECORD_FAIL')
-        }
-    } catch (e) {
-        throw new VerifyError('', 'MXRECORD_FAIL')
-    }
+	let jobDnsResolveMx: P<dns.MxRecord[]>
+	let results: dns.MxRecord[]
+	try {
+		jobDnsResolveMx = dnsResolveMx(emailHost)
+		results = await jobDnsResolveMx
+		if (_.isEmpty(results)) {
+			throw new VerifyError('', 'MXRECORD_FAIL')
+		}
+	} catch (e) {
+		throw new VerifyError('', 'MXRECORD_FAIL')
+	}
 
-    debug('RESOLVE MX RECORD')
-    const exchange = _(results).sortBy(v => v.priority).take(1).value()[0].exchange;
-    debug(exchange)
+	debug('RESOLVE MX RECORD')
+	const exchange = _(results).sortBy(v => v.priority).take(1).value()[0].exchange;
+	debug(exchange)
 
-    let jobNetConnect: P<Netsend>
-    try {
-        jobNetConnect = netsend({ port: 25, host: exchange })
-    } catch (e) {
-        throw new VerifyError('', 'CONN_FAIL')
-    }
+	let jobNetConnect: P<Netsend>
+	try {
+		jobNetConnect = netsend({ port: 25, host: exchange })
+	} catch (e) {
+		throw new VerifyError('', 'CONN_FAIL')
+	}
 
-    const jobVerify = jobNetConnect.then((netConn) => {
-        return vvv(netConn, opts, emailHost)
-    })
+	const jobVerify = jobNetConnect.then((netConn) => {
+		return vvv(netConn, opts, emailHost)
+	})
 
-    return new Promise((resolve) => {
-        const mainJob = jobVerify.then(results => {
-            resolve(results)
-        }).catch(VerifyError, (err: VerifyError) => {
-            resolve(err.extra)
-        }).catch((err) => {
-            debug(err)
-            resolve('UNKNOWN')
-        })
+	return new Promise((resolve) => {
+		const mainJob = jobVerify.then(results => {
+			resolve(results)
+		}).catch(VerifyError, (err: VerifyError) => {
+			resolve(err.extra)
+		}).catch((err) => {
+			debug(err)
+			resolve('UNKNOWN')
+		})
 
-        const mainJobTimeout = setTimeout(() => {
-            mainJob.cancel()
+		const mainJobTimeout = setTimeout(() => {
+			mainJob.cancel()
 
-            if (jobDnsResolveMx.isPending()) {
-                return resolve('MXRECORD_TIMEOUT')
-            }
+			if (jobDnsResolveMx.isPending()) {
+				return resolve('MXRECORD_TIMEOUT')
+			}
 
-            if (jobNetConnect.isPending()) {
-                return resolve('CONN_TIMEOUT')
-            }
+			if (jobNetConnect.isPending()) {
+				return resolve('CONN_TIMEOUT')
+			}
 
-            if (jobVerify.isPending()) {
-                return resolve('VERIFY_TIMEOUT')
-            }
+			if (jobVerify.isPending()) {
+				return resolve('VERIFY_TIMEOUT')
+			}
 
-            return resolve('UNKNOWN')
-        }, timeout);
+			return resolve('UNKNOWN')
+		}, timeout);
 
-        mainJob.finally(() => {
-            if (!mainJob.isCancelled()) {
-                clearTimeout(mainJobTimeout)
-            }
-        })
-    })
+		mainJob.finally(() => {
+			if (!mainJob.isCancelled()) {
+				clearTimeout(mainJobTimeout)
+			}
+		})
+	})
 }
 
 async function vvv(netConn: Netsend, opts: Options, emailHost: string) {
-    try {
-        debug('CONNECTED SMTP SERVER')
+	try {
+		debug('CONNECTED SMTP SERVER')
 
-        let resmsg = await netConn.response()
-        debug(resmsg[0])
-        if (resmsg[0].substr(0, 3) !== '220') {
-            throw new VerifyError('', 'VERIFY_FAIL')
-        }
+		let resmsg = await netConn.response()
+		debug(resmsg[0])
+		if (resmsg[0].substr(0, 3) !== '220') {
+			throw new VerifyError('', 'VERIFY_FAIL')
+		}
 
-        let writeMsg = 'HELO ' + opts.helo
-        debug(writeMsg);
-        netConn.write(writeMsg)
+		let writeMsg = 'HELO ' + opts.helo
+		debug(writeMsg);
+		netConn.write(writeMsg)
 
-        resmsg = await netConn.response()
-        debug(resmsg[0])
-        if (resmsg[0].substr(0, 3) !== '250') {
-            throw new VerifyError('', 'VERIFY_FAIL')
-        }
+		resmsg = await netConn.response()
+		debug(resmsg[0])
+		if (resmsg[0].substr(0, 3) !== '250') {
+			throw new VerifyError('', 'VERIFY_FAIL')
+		}
 
-        writeMsg = `MAIL FROM: <${opts.from}>`
-        debug(writeMsg);
-        netConn.write(writeMsg)
+		writeMsg = `MAIL FROM: <${opts.from}>`
+		debug(writeMsg);
+		netConn.write(writeMsg)
 
-        resmsg = await netConn.response()
-        debug(resmsg[0])
-        if (resmsg[0].substr(0, 3) !== '250') {
-            throw new VerifyError('', 'VERIFY_FAIL')
-        }
+		resmsg = await netConn.response()
+		debug(resmsg[0])
+		if (resmsg[0].substr(0, 3) !== '250') {
+			throw new VerifyError('', 'VERIFY_FAIL')
+		}
 
-        writeMsg = `RCPT TO: <${opts.to}>`
-        debug(writeMsg)
-        netConn.write(writeMsg)
+		writeMsg = `RCPT TO: <${opts.to}>`
+		debug(writeMsg)
+		netConn.write(writeMsg)
 
-        resmsg = await netConn.response()
-        debug(resmsg[0])
-        if (resmsg[0].substr(0, 3) === '250') {
-            if (opts.catchalltest === true) {
-                debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
-                let randomUser = generateRandomEmail(emailHost)
-                debug('RANDOM USER: ', randomUser);
-                const writeMsg = `RCPT TO: <${randomUser}>`
-                debug(writeMsg);
-                netConn.write(writeMsg);
-                resmsg = await netConn.response()
-                if (resmsg[0].substr(0, 3) === '250') {
-                    return 'CATCH_ALL'
-                } else {
-                    return 'EXIST'
-                }
-            } else {
-                return 'EXIST'
-            }
-        } else {
-            return 'NOT_EXIST'
-        }
-    } finally {
-        netConn.end()
-    }
+		resmsg = await netConn.response()
+		debug(resmsg[0])
+		if (resmsg[0].substr(0, 3) === '250') {
+			if (opts.catchalltest === true) {
+				debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
+				let randomUser = generateRandomEmail(emailHost)
+				debug('RANDOM USER: ', randomUser);
+				const writeMsg = `RCPT TO: <${randomUser}>`
+				debug(writeMsg);
+				netConn.write(writeMsg);
+				resmsg = await netConn.response()
+				if (resmsg[0].substr(0, 3) === '250') {
+					return 'CATCH_ALL'
+				} else {
+					return 'EXIST'
+				}
+			} else {
+				return 'EXIST'
+			}
+		} else {
+			return 'NOT_EXIST'
+		}
+	} finally {
+		netConn.end()
+	}
 }
 
 class VerifyError extends Error {
 
-    extra?: string
+	extra?: string
 
-    constructor(message: string, extra?: string) {
-        super();
-        
-        Error.captureStackTrace(this, this.constructor)
-        this.name = 'CustomError'
-        this.message = message
-        this.extra = extra
-    }
-    
+	constructor(message: string, extra?: string) {
+		super();
+		
+		Error.captureStackTrace(this, this.constructor)
+		this.name = 'CustomError'
+		this.message = message
+		this.extra = extra
+	}
+	
 }
 
 function generateRandomEmail(emailHost: string) {
-    return `${randomstring.generate(32)}@${emailHost}`
+	return `${randomstring.generate(32)}@${emailHost}`
 }
