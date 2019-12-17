@@ -32,12 +32,6 @@ export function verify(opts: Options) {
     const emailHost = emailSplited[1];
     const timeout = opts.timeout ? opts.timeout : 5000;
 
-    const generateRandomEmail = function() {
-        debug('Domain...', emailHost);
-        let radomString = randomstring.generate(32);
-        return radomString + '@' + emailHost;
-    };
-
     return new P((resolve, reject) => {
         const jobDnsResolveMx = dnsResolveMx(emailHost).then(results => {
             if (_.isEmpty(results)) {
@@ -104,7 +98,7 @@ export function verify(opts: Options) {
                 if (resmsg[0].substr(0, 3) === '250') {
                     if (opts.catchalltest === true) {
                         debug('MAILBOX EXIST..CHECKING FOR CATCHALL');
-                        let randomUser = generateRandomEmail();
+                        let randomUser = generateRandomEmail(emailHost);
                         debug('RANDOM USER: ', randomUser);
                         const writeMsg = `RCPT TO: <${randomUser}>`;
                         debug(writeMsg);
@@ -175,4 +169,8 @@ class VerifyError extends Error {
         this.extra = extra
     }
     
+}
+
+function generateRandomEmail(emailHost: string) {
+    return `${randomstring.generate(32)}@${emailHost}`
 }
