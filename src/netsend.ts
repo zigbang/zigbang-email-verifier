@@ -20,7 +20,7 @@ export interface Netsend {
 
 const debug = _debug.debug("netsend")
 
-export default function netsend(options: NetsendOptions): Promise<Netsend> {
+export default function netsend(options: NetsendOptions): P<Netsend> {
 	return new P((resolve, reject, onCancel) => {
 		const responseQueue = new Queue()
 		const client = net.createConnection(options)
