@@ -13,25 +13,24 @@ interface NetsendOptions {
 export interface Netsend {
 	
 	write(msg: string): void
-	end(): Promise<unknown>
-	response: () => Promise<string[]>
+	end(): Promise<void>
+	response(): Promise<string[]>
 	
 }
 
 const debug = _debug.debug("netsend")
 
 export default function netsend(options: NetsendOptions): Promise<Netsend> {
-	const responseQueue = new Queue()
-	const client = net.createConnection(options)
-	client.on("end", () => {
-		debug("onEnd()")
-	})
-	client.on("data", ((data: Buffer) => {
-		debug(`onData()\n${data}`)
-		responseQueue.add(data.toString())
-	}))
-
 	return new P((resolve, reject, onCancel) => {
+		const responseQueue = new Queue()
+		const client = net.createConnection(options)
+		client.on("end", () => {
+			debug("onEnd()")
+		})
+		client.on("data", ((data: Buffer) => {
+			debug(`onData()\n${data}`)
+			responseQueue.add(data.toString())
+		}))
 		client.on("error", (err) => {
 			debug("onError()")
 			reject(err)
