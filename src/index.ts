@@ -13,67 +13,49 @@ export interface Options {
 	helo: string
 	from: string
 	to: string
-	debug?: boolean
 	catchalltest?: boolean
 	timeout?: number
 }
 
 export async function verify(opts: Options) {
-	const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; // eslint-disable-line
+	const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 	if (!emailRegex.test(opts.to)) {
 		return "INVALID"
 	}
 
-	const emailSplited = opts.to.split('@')
-	const emailHost = emailSplited[1]
-	const timeout = opts.timeout ? opts.timeout : 5000
+	let currentJob: string
+	let netConn: Netsend
 
-	let jobDnsResolveMx: P<string>
-	let jobNetConnect: P<Netsend>
-	let jobVerify: P<string>
+	const mainJob = P.resolve((async () => {
+		currentJob = "MXRECORD"
+		const [, emailHost] = opts.to.split('@')
+		const mx = await resolveMx(emailHost)
 
-	const mainJob2 = (async () => {
-		jobDnsResolveMx = P.resolve(resolveMx(emailHost))
-		const exchange = await jobDnsResolveMx
-	
-		let netConn: Netsend
-		try {
-			jobNetConnect = P.resolve(netsend({ port: 25, host: exchange }))
-			netConn = await jobNetConnect
-		} catch (e) {
-			return "CONN_FAIL"
-		}
-		
-		jobVerify = P.resolve(verifySMTP(netConn, opts, emailHost))
-		return jobVerify
-	})()
+		currentJob = "CONN"
+		netConn = await netsend({ port: 25, host: mx })
 
-	return new Promise((resolve) => {
-		const mainJob = P.resolve(mainJob2).then(results => {
-			resolve(results)
-		}).catch((err) => {
-			resolve(err.extra)
-		})
+		currentJob = "VERIFY"
+		return await verifySMTP(netConn, opts, emailHost)
+	})())
 
+	return new Promise<string>((resolve) => {
+		(async () => {
+			try {
+				resolve(await mainJob)
+			} catch (e) {
+				resolve(e.message)
+			} finally {
+				if (netConn) netConn.end()
+			}
+		})()
+
+		const timeout = opts.timeout ? opts.timeout : 5000
 		setTimeout(() => {
-			const resolved = mainJob.isResolved()
-			debug(`TIMED OUT resolved=${resolved}`)
-			if (resolved) return
-
-			if (jobDnsResolveMx && jobDnsResolveMx.isPending()) {
-				return resolve('MXRECORD_TIMEOUT')
-			}
-
-			if (jobNetConnect && jobNetConnect.isPending()) {
-				jobNetConnect.cancel()
-				return resolve('CONN_TIMEOUT')
-			}
-
-			if (jobVerify && jobVerify.isPending()) {
-				return resolve('VERIFY_TIMEOUT')
-			}
-
-			return resolve('UNKNOWN')
+			if (mainJob.isResolved()) return
+			if (netConn) netConn.end()
+			
+			if (currentJob) return resolve(`${currentJob}_TIMEOUT`)
+			return resolve('UNKNOWN_TIMEOUT')
 		}, timeout)
 	})
 }
@@ -85,12 +67,13 @@ async function resolveMx(emailHost: string) {
 		const dnsResolveMx = P.promisify(dns.resolveMx, { context: dns });
 		results = await dnsResolveMx(emailHost)
 		if (_.isEmpty(results)) {
-			throw new VerifyError('', 'MXRECORD_FAIL')
+			throw new Error("MXRECORD_FAIL")
 		}
 	} catch (e) {
-		throw new VerifyError('', 'MXRECORD_FAIL')
+		if (_debug.enabled(debug.namespace)) console.error(e)
+		throw new Error("MXRECORD_FAIL")
 	}
-	
+
 	const exchange = _(results).sortBy(v => v.priority).take(1).value()[0].exchange;
 	debug(exchange)
 	return exchange
@@ -103,7 +86,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		let resmsg = await netConn.response()
 		debug(resmsg[0])
 		if (resmsg[0].substr(0, 3) !== '220') {
-			throw new VerifyError("", "VERIFY_FAIL")
+			throw new Error("VERIFY_FAIL")
 		}
 
 		// HELO
@@ -114,7 +97,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		resmsg = await netConn.response()
 		debug(resmsg[0])
 		if (resmsg[0].substr(0, 3) !== '250') {
-			throw new VerifyError("", "VERIFY_FAIL")
+			throw new Error("VERIFY_FAIL")
 		}
 
 		// MAIL FROM
@@ -125,7 +108,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		resmsg = await netConn.response()
 		debug(resmsg[0])
 		if (resmsg[0].substr(0, 3) !== '250') {
-			throw new VerifyError("", "VERIFY_FAIL")
+			throw new Error("VERIFY_FAIL")
 		}
 
 		// RCPT TO
@@ -160,25 +143,10 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 	}
 }
 
-class VerifyError extends Error {
-
-	extra?: string
-
-	constructor(message: string, extra?: string) {
-		super();
-		
-		Error.captureStackTrace(this, this.constructor)
-		this.name = 'CustomError'
-		this.message = message
-		this.extra = extra
-	}
-	
-}
-
 function generateRandomEmail(emailHost: string) {
 	return `${randomstring.generate(32)}@${emailHost}`
 }
 
-function delay(ms: number) {
-    return new Promise( resolve => setTimeout(resolve, ms) );
+export function delay(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms));
 }

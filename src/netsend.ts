@@ -10,11 +10,9 @@ interface NetsendOptions {
 }
 
 export interface Netsend {
-	
 	write(msg: string): void
 	end(): Promise<void>
 	response(): Promise<string[]>
-	
 }
 
 const debug = _debug.debug("netsend")
@@ -24,25 +22,26 @@ export default function netsend(options: NetsendOptions): Promise<Netsend> {
 		const responseQueue = new Queue()
 		const client = net.createConnection(options)
 		client.on("end", () => {
-			debug("onEnd()")
+			debug("END")
 		})
 		client.on("data", ((data: Buffer) => {
-			debug(`onData()\n${data}`)
+			debug(`ADD\n  ${data.toString().split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")}`)
 			responseQueue.add(data.toString())
 		}))
 		client.on("error", (err) => {
-			debug("onError()")
+			debug("ERROR")
 			reject(err)
 		})
 
 		if (onCancel) onCancel(() => {
-			debug("onCancel()")
+			debug("CANCEL")
 			client.end();
 			client.destroy()
 		})
-
+		
 		return resolve({
 			write: (msg: string) => {
+				debug(`WRITE\n  ${msg}`)
 				client.write(`${msg}\r\n`)
 			},
 			end: () => {
@@ -64,7 +63,7 @@ class Queue {
 	private debug = _debug.debug("queue")
 
 	add(msg: string) {
-		this.debug(`add() msg=${msg}`)
+		this.debug(`ADD\n  ${msg.toString().split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")}`)
 
 		if (this.evtResolve) {
 			this.evtResolve([msg])
@@ -75,7 +74,7 @@ class Queue {
 	}
 
 	flush(): Promise<string[]> {
-		this.debug("flush()")
+		this.debug("FLUSH")
 
 		return new Promise((resolve) => {
 			if (this.msgQueue.length) {
