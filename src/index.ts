@@ -31,21 +31,28 @@ export async function verify(opts: Options) {
 	const emailHost = emailSplited[1]
 	const timeout = opts.timeout ? opts.timeout : 5000
 
-	const jobDnsResolveMx = P.resolve(resolveMx(emailHost))
-	const exchange = await jobDnsResolveMx
-
+	let jobDnsResolveMx: P<string>
 	let jobNetConnect: P<Netsend>
-	try {
-		jobNetConnect = netsend({ port: 25, host: exchange })
-	} catch (e) {
-		throw new VerifyError('', 'CONN_FAIL')
-	}
+	let jobVerify: P<string>
 
-	const netConn = await jobNetConnect
-	const jobVerify = P.resolve(verifySMTP(netConn, opts, emailHost))
+	const mainJob2 = (async () => {
+		jobDnsResolveMx = P.resolve(resolveMx(emailHost))
+		const exchange = await jobDnsResolveMx
+	
+		let netConn: Netsend
+		try {
+			jobNetConnect = P.resolve(netsend({ port: 25, host: exchange }))
+			netConn = await jobNetConnect
+		} catch (e) {
+			return "CONN_FAIL"
+		}
+		
+		jobVerify = P.resolve(verifySMTP(netConn, opts, emailHost))
+		return jobVerify
+	})()
 
 	return new Promise((resolve) => {
-		const mainJob = jobVerify.then(results => {
+		const mainJob = P.resolve(mainJob2).then(results => {
 			resolve(results)
 		}).catch(VerifyError, (err: VerifyError) => {
 			resolve(err.extra)
@@ -54,29 +61,26 @@ export async function verify(opts: Options) {
 			resolve('UNKNOWN')
 		})
 
-		const mainJobTimeout = setTimeout(() => {
-			mainJob.cancel()
+		setTimeout(() => {
+			const resolved = mainJob.isResolved()
+			debug(`setTimeout() resolved=${resolved}`)
+			if (resolved) return
 
-			if (jobDnsResolveMx.isPending()) {
+			if (jobDnsResolveMx && jobDnsResolveMx.isPending()) {
 				return resolve('MXRECORD_TIMEOUT')
 			}
 
-			if (jobNetConnect.isPending()) {
+			if (jobNetConnect && jobNetConnect.isPending()) {
+				jobNetConnect.cancel()
 				return resolve('CONN_TIMEOUT')
 			}
 
-			if (jobVerify.isPending()) {
+			if (jobVerify && jobVerify.isPending()) {
 				return resolve('VERIFY_TIMEOUT')
 			}
 
 			return resolve('UNKNOWN')
-		}, timeout);
-
-		mainJob.finally(() => {
-			if (!mainJob.isCancelled()) {
-				clearTimeout(mainJobTimeout)
-			}
-		})
+		}, timeout)
 	})
 }
 
@@ -93,7 +97,7 @@ async function resolveMx(emailHost: string) {
 	} catch (e) {
 		throw new VerifyError('', 'MXRECORD_FAIL')
 	}
-
+	
 	const exchange = _(results).sortBy(v => v.priority).take(1).value()[0].exchange;
 	debug(exchange)
 	return exchange
@@ -177,4 +181,8 @@ class VerifyError extends Error {
 
 function generateRandomEmail(emailHost: string) {
 	return `${randomstring.generate(32)}@${emailHost}`
+}
+
+function delay(ms: number) {
+    return new Promise( resolve => setTimeout(resolve, ms) );
 }
