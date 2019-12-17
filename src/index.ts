@@ -89,8 +89,8 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		debug('CONNECTED SMTP SERVER')
 
 		let resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) !== '220') {
+		debug(resmsg)
+		if (resmsg.code !== '220') {
 			throw new Error("VERIFY_FAIL")
 		}
 
@@ -100,8 +100,8 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		netConn.write(writeMsg)
 
 		resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) !== '250') {
+		debug(resmsg)
+		if (resmsg.code !== '250') {
 			throw new Error("VERIFY_FAIL")
 		}
 
@@ -111,8 +111,8 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		netConn.write(writeMsg)
 
 		resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) !== '250') {
+		debug(resmsg)
+		if (resmsg.code !== '250') {
 			throw new Error("VERIFY_FAIL")
 		}
 
@@ -122,8 +122,8 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		netConn.write(writeMsg)
 
 		resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) === '250') {
+		debug(resmsg)
+		if (resmsg.code === '250') {
 			if (opts.catchalltest === true) {
 				// RCPT TO
 				debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
@@ -132,7 +132,8 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 				netConn.write(writeMsg)
 
 				resmsg = await netConn.response()
-				if (resmsg[0].substr(0, 3) === '250') {
+				debug(resmsg)
+				if (resmsg.code === '250') {
 					return 'CATCH_ALL'
 				} else {
 					return 'EXIST'
