@@ -39,6 +39,7 @@
     "typescript": "^3.7.3"
   },
   "scripts": {
+    "prepublish": "tsc",
     "test": "jest"
   }
 }

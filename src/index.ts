@@ -3,7 +3,6 @@ import _debug from "debug"
 import _ from "lodash"
 import randomstring from "randomstring"
 import P from "bluebird"
-P.config({ cancellation: true })
 
 import netsend, { Netsend } from "./netsend"
 
@@ -148,5 +147,5 @@ function generateRandomEmail(emailHost: string) {
 }
 
 export function delay(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise<void>(resolve => setTimeout(resolve, ms));
 }

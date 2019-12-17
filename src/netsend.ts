@@ -1,8 +1,6 @@
 import * as net from "net"
 import _ from "lodash"
 import * as _debug from "debug"
-import P from "bluebird"
-P.config({ cancellation: true });
 
 interface NetsendOptions {
 	port: number
@@ -18,7 +16,7 @@ export interface Netsend {
 const debug = _debug.debug("netsend")
 
 export default function netsend(options: NetsendOptions): Promise<Netsend> {
-	return new P(async (resolve, reject, onCancel) => {
+	return new Promise(async (resolve, reject) => {
 		const responseQueue = new Queue()
 		const client = net.createConnection(options)
 		client.on("end", () => {
@@ -33,12 +31,6 @@ export default function netsend(options: NetsendOptions): Promise<Netsend> {
 			reject(err)
 		})
 
-		if (onCancel) onCancel(() => {
-			debug("CANCEL")
-			client.end();
-			client.destroy()
-		})
-		
 		return resolve({
 			write: (msg: string) => {
 				debug(`WRITE\n  ${msg}`)
