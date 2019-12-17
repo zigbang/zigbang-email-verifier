@@ -61,4 +61,16 @@ class TestSuite {
 		})
 		expect(result).toBe("MXRECORD_TIMEOUT")
 	}
+
+	@test("VERIFY_TIMEOUT")
+	async timeout2() {
+		const host = "zigbang.com"
+		const result = await verify({
+			helo: host,
+			from: `invalid@${host}`,
+			to: `invalid@${host}`,
+			timeout: 100	// not a good method thou
+		})
+		expect(result).toBe("VERIFY_TIMEOUT")
+	}
 }

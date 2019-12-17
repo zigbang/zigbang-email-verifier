@@ -24,20 +24,35 @@ export async function verify(opts: Options) {
 
 	let currentJob: string
 	let netConn: Netsend
+	let timedout = false
 
 	const mainJob = P.resolve((async () => {
 		currentJob = "MXRECORD"
 		const [, emailHost] = opts.to.split('@')
+		if (timedout) return
 		const mx = await resolveMx(emailHost)
 
 		currentJob = "CONN"
+		if (timedout) return
 		netConn = await netsend({ port: 25, host: mx })
 
 		currentJob = "VERIFY"
+		if (timedout) return
 		return await verifySMTP(netConn, opts, emailHost)
 	})())
 
 	return new Promise<string>((resolve) => {
+		const timeout = opts.timeout ? opts.timeout : 5000
+		setTimeout(() => {
+			debug("TIMEOUT")
+			timedout = true
+			if (mainJob.isResolved()) return
+			if (netConn) netConn.end()
+			
+			if (currentJob) return resolve(`${currentJob}_TIMEOUT`)
+			return resolve('UNKNOWN_TIMEOUT')
+		}, timeout);
+
 		(async () => {
 			try {
 				resolve(await mainJob)
@@ -47,15 +62,6 @@ export async function verify(opts: Options) {
 				if (netConn) netConn.end()
 			}
 		})()
-		
-		const timeout = opts.timeout ? opts.timeout : 5000
-		setTimeout(() => {
-			if (mainJob.isResolved()) return
-			if (netConn) netConn.end()
-			
-			if (currentJob) return resolve(`${currentJob}_TIMEOUT`)
-			return resolve('UNKNOWN_TIMEOUT')
-		}, timeout)
 	})
 }
 

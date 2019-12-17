@@ -15,37 +15,37 @@ export interface Netsend {
 
 const debug = _debug.debug("netsend")
 
-export default function netsend(options: NetsendOptions): Promise<Netsend> {
-	return new Promise(async (resolve, reject) => {
-		const responseQueue = new Queue()
-		const client = net.createConnection(options)
-		client.on("end", () => {
-			debug("END")
-		})
-		client.on("data", ((data: Buffer) => {
-			debug(`ADD\n  ${data.toString().split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")}`)
-			responseQueue.add(data.toString())
-		}))
-		client.on("error", (err) => {
-			debug("ERROR")
-			reject(err)
-		})
-
-		return resolve({
-			write: (msg: string) => {
-				debug(`WRITE\n  ${msg}`)
-				client.write(`${msg}\r\n`)
-			},
-			end: () => {
-				return new Promise((resolve) => {
-					client.end(() => resolve)
-				})
-			},
-			response: () => {
-				return responseQueue.flush()
-			}
-		})
+export default async function netsend(options: NetsendOptions): Promise<Netsend> {
+	const responseQueue = new Queue()
+	const client = net.createConnection(options)
+	client.on("data", ((data: Buffer) => {
+		debug(`ADD\n  ${data.toString().split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")}`)
+		responseQueue.add(data.toString())
+	}))
+	client.on("end", () => {
+		debug("END client")
 	})
+	client.on("error", (err) => {
+		debug("ERROR")
+		if (_debug.enabled(debug.namespace)) console.error(err)
+	})
+
+	return {
+		write: (msg: string) => {
+			debug(`WRITE\n  ${msg}`)
+			client.write(`${msg}\r\n`)
+		},
+		end: () => {
+			debug("END netsend")
+			return new Promise((resolve) => {
+				client.end(() => resolve)
+				client.destroy()
+			})
+		},
+		response: () => {
+			return responseQueue.flush()
+		}
+	}
 }
 
 class Queue {
