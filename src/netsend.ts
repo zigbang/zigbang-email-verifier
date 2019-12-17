@@ -8,7 +8,7 @@ interface NetsendOptions {
 }
 
 export interface Netsend {
-	write(msg: string): void
+	write(msg: string): Promise<{ code: string, message: string }>
 	end(): Promise<void>
 	response(): Promise<{ code: string, message: string }>
 }
@@ -31,9 +31,15 @@ export default async function netsend(options: NetsendOptions): Promise<Netsend>
 	})
 
 	return {
-		write: (msg: string) => {
+		write: async (msg: string) => {
 			debug(`WRITE\n  ${msg}`)
 			client.write(`${msg}\r\n`)
+
+			const line = await responseQueue.flush()
+			debug(`RESPONSE ${line}`)
+			const code = line.substr(0, 3)
+			const message = line.substr(4)
+			return { code, message }
 		},
 		end: () => {
 			debug("END netsend")
@@ -44,6 +50,7 @@ export default async function netsend(options: NetsendOptions): Promise<Netsend>
 		},
 		response: async () => {
 			const line = await responseQueue.flush()
+			debug(`RESPONSE ${line}`)
 			const code = line.substr(0, 3)
 			const message = line.substr(4)
 			return { code, message }

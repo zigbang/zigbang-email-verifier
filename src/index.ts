@@ -97,9 +97,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		// HELO
 		let writeMsg = `HELO ${opts.helo}`
 		debug(writeMsg);
-		netConn.write(writeMsg)
-
-		resmsg = await netConn.response()
+		resmsg = await netConn.write(writeMsg)
 		debug(resmsg)
 		if (resmsg.code !== '250') {
 			throw new Error("VERIFY_FAIL")
@@ -108,9 +106,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		// MAIL FROM
 		writeMsg = `MAIL FROM: <${opts.from}>`
 		debug(writeMsg);
-		netConn.write(writeMsg)
-
-		resmsg = await netConn.response()
+		resmsg = await netConn.write(writeMsg)
 		debug(resmsg)
 		if (resmsg.code !== '250') {
 			throw new Error("VERIFY_FAIL")
@@ -119,9 +115,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		// RCPT TO
 		writeMsg = `RCPT TO: <${opts.to}>`
 		debug(writeMsg)
-		netConn.write(writeMsg)
-
-		resmsg = await netConn.response()
+		resmsg = await netConn.write(writeMsg)
 		debug(resmsg)
 		if (resmsg.code === '250') {
 			if (opts.catchalltest === true) {
@@ -129,9 +123,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 				debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
 				const writeMsg = `RCPT TO: <${generateRandomEmail(emailHost)}>`
 				debug(writeMsg)
-				netConn.write(writeMsg)
-
-				resmsg = await netConn.response()
+				resmsg = await netConn.write(writeMsg)
 				debug(resmsg)
 				if (resmsg.code === '250') {
 					return 'CATCH_ALL'
