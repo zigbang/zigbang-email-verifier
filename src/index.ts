@@ -1,5 +1,4 @@
 import * as dns from "dns"
-
 import _debug from "debug"
 import _ from "lodash"
 import randomstring from "randomstring"
@@ -9,8 +8,6 @@ P.config({ cancellation: true })
 import netsend, { Netsend } from "./netsend"
 
 const debug = _debug.debug("email-verifier")
-
-const dnsResolveMx = P.promisify(dns.resolveMx, { context: dns });
 
 export interface Options {
 	helo: string
@@ -54,11 +51,8 @@ export async function verify(opts: Options) {
 	return new Promise((resolve) => {
 		const mainJob = P.resolve(mainJob2).then(results => {
 			resolve(results)
-		}).catch(VerifyError, (err: VerifyError) => {
-			resolve(err.extra)
 		}).catch((err) => {
-			debug(err)
-			resolve('UNKNOWN')
+			resolve(err.extra)
 		})
 
 		setTimeout(() => {
@@ -86,11 +80,10 @@ export async function verify(opts: Options) {
 
 async function resolveMx(emailHost: string) {
 	debug('RESOLVE MX RECORD')
-	let jobDnsResolveMx: P<dns.MxRecord[]>
 	let results: dns.MxRecord[]
 	try {
-		jobDnsResolveMx = dnsResolveMx(emailHost)
-		results = await jobDnsResolveMx
+		const dnsResolveMx = P.promisify(dns.resolveMx, { context: dns });
+		results = await dnsResolveMx(emailHost)
 		if (_.isEmpty(results)) {
 			throw new VerifyError('', 'MXRECORD_FAIL')
 		}
@@ -110,18 +103,18 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		let resmsg = await netConn.response()
 		debug(resmsg[0])
 		if (resmsg[0].substr(0, 3) !== '220') {
-			throw new VerifyError('', 'VERIFY_FAIL')
+			throw new VerifyError("", "VERIFY_FAIL")
 		}
 
 		// HELO
-		let writeMsg = 'HELO ' + opts.helo
+		let writeMsg = `HELO ${opts.helo}`
 		debug(writeMsg);
 		netConn.write(writeMsg)
 
 		resmsg = await netConn.response()
 		debug(resmsg[0])
 		if (resmsg[0].substr(0, 3) !== '250') {
-			throw new VerifyError('', 'VERIFY_FAIL')
+			throw new VerifyError("", "VERIFY_FAIL")
 		}
 
 		// MAIL FROM
@@ -132,7 +125,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		resmsg = await netConn.response()
 		debug(resmsg[0])
 		if (resmsg[0].substr(0, 3) !== '250') {
-			throw new VerifyError('', 'VERIFY_FAIL')
+			throw new VerifyError("", "VERIFY_FAIL")
 		}
 
 		// RCPT TO
