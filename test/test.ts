@@ -28,6 +28,16 @@ class TestSuite {
 		})
 		expect(result).toBe("INVALID")
 	}
+
+	// @test
+	// async invalid2() {
+	// 	const result = await verify({
+	// 		helo: "zigbang.co",
+	// 		from: 'cs@zigbang.co',
+	// 		to: 'cs@zigbang.co'
+	// 	})
+	// 	expect(result).toBe("INVALID")
+	// }
 }
 
 // INVALID

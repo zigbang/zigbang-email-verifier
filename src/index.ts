@@ -23,7 +23,6 @@ interface Options {
 
 export async function verify(opts: Options) {
 	const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; // eslint-disable-line
-
 	if (!emailRegex.test(opts.to)) {
 		return "INVALID"
 	}
@@ -32,21 +31,8 @@ export async function verify(opts: Options) {
 	const emailHost = emailSplited[1]
 	const timeout = opts.timeout ? opts.timeout : 5000
 
-	let jobDnsResolveMx: P<dns.MxRecord[]>
-	let results: dns.MxRecord[]
-	try {
-		jobDnsResolveMx = dnsResolveMx(emailHost)
-		results = await jobDnsResolveMx
-		if (_.isEmpty(results)) {
-			throw new VerifyError('', 'MXRECORD_FAIL')
-		}
-	} catch (e) {
-		throw new VerifyError('', 'MXRECORD_FAIL')
-	}
-
-	debug('RESOLVE MX RECORD')
-	const exchange = _(results).sortBy(v => v.priority).take(1).value()[0].exchange;
-	debug(exchange)
+	const jobDnsResolveMx = P.resolve(resolveMx(emailHost))
+	const exchange = await jobDnsResolveMx
 
 	let jobNetConnect: P<Netsend>
 	try {
@@ -55,9 +41,8 @@ export async function verify(opts: Options) {
 		throw new VerifyError('', 'CONN_FAIL')
 	}
 
-	const jobVerify = jobNetConnect.then((netConn) => {
-		return vvv(netConn, opts, emailHost)
-	})
+	const netConn = await jobNetConnect
+	const jobVerify = P.resolve(verifySMTP(netConn, opts, emailHost))
 
 	return new Promise((resolve) => {
 		const mainJob = jobVerify.then(results => {
@@ -95,7 +80,26 @@ export async function verify(opts: Options) {
 	})
 }
 
-async function vvv(netConn: Netsend, opts: Options, emailHost: string) {
+async function resolveMx(emailHost: string) {
+	debug('RESOLVE MX RECORD')
+	let jobDnsResolveMx: P<dns.MxRecord[]>
+	let results: dns.MxRecord[]
+	try {
+		jobDnsResolveMx = dnsResolveMx(emailHost)
+		results = await jobDnsResolveMx
+		if (_.isEmpty(results)) {
+			throw new VerifyError('', 'MXRECORD_FAIL')
+		}
+	} catch (e) {
+		throw new VerifyError('', 'MXRECORD_FAIL')
+	}
+
+	const exchange = _(results).sortBy(v => v.priority).take(1).value()[0].exchange;
+	debug(exchange)
+	return exchange
+}
+
+async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 	try {
 		debug('CONNECTED SMTP SERVER')
 
