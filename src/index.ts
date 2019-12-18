@@ -4,7 +4,7 @@ import _ from "lodash"
 import randomstring from "randomstring"
 import P from "bluebird"
 
-import { SmtpClient, SmtpClientResponse } from "./netsend"
+import { SmtpClient, SmtpClientResponse } from "./smtp"
 
 const debug = _debug.debug("email-verifier")
 
@@ -27,17 +27,17 @@ export async function verify(opts: Options) {
 	let timedout = false
 
 	const mainJob = P.resolve((async () => {
-		currentJob = "MXRECORD"
 		const [, emailHost] = opts.to.split('@')
 		if (timedout) return
+		currentJob = "MXRECORD"
 		const mx = await resolveMx(emailHost)
 
-		currentJob = "CONN"
 		if (timedout) return
+		currentJob = "CONN"
 		netConn = new SmtpClient({ port: 25, host: mx })
 
-		currentJob = "VERIFY"
 		if (timedout) return
+		currentJob = "VERIFY"
 		return await verifySMTP(netConn, opts, emailHost)
 	})())
 
@@ -105,7 +105,8 @@ async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string)
 
 		if (opts.catchalltest === true) {
 			debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
-			const response = await netConn.to(generateRandomEmail(emailHost))
+			const randomEmail = `${randomstring.generate(32)}@${emailHost}`
+			const response = await netConn.to(randomEmail)
 			debug(response)
 			if (response.code === 250) return "CATCH_ALL"
 		}
@@ -116,10 +117,6 @@ async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string)
 	} finally {
 		netConn.close()
 	}
-}
-
-function generateRandomEmail(emailHost: string) {
-	return `${randomstring.generate(32)}@${emailHost}`
 }
 
 export function delay(ms: number) {

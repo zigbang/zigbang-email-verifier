@@ -25,12 +25,14 @@ export class SmtpClient {
 	}
 
 	connect() {
+		this.debug(`${chalk.bold.cyanBright("||")} connect`)
+		
 		this.client = net.createConnection(this.options)
 		this.client.on("data", ((data: Buffer) => {
 			this.responseQueue.add(data.toString())
 		}))
 		this.client.on("end", () => {
-			this.debug("END client")
+			this.debug("END")
 		})
 		this.client.on("error", (err) => {
 			this.debug("ERROR")
@@ -41,12 +43,11 @@ export class SmtpClient {
 	}
 
 	close() {
-		this.debug("END netsend")
-		if (this.client) {
-			const client = this.client
-			this.client.end(() => client.destroy())
-			this.client = undefined
-		}
+		if (!this.client) return
+		
+		const _client = this.client
+		this.client.end(() => { _client.destroy(); this.debug(`${chalk.bold.cyanBright("||")} closed`) })
+		this.client = undefined
 	}
 
 	async helo(value: string) {
@@ -64,7 +65,7 @@ export class SmtpClient {
 	private async write(msg: string) {
 		if (!this.client) throw new Error(`client is null`)
 
-		this.debug(`WRITE ${chalk.red(msg)}`)
+		this.debug(`${chalk.bold.blueBright(">>")} ${chalk.white(msg)}`)
 		this.client.write(`${msg}\r\n`)
 
 		return this.response()
@@ -73,8 +74,8 @@ export class SmtpClient {
 	private async response() {
 		const line = await this.responseQueue.flush()
 		if (this.debug.enabled) {
-			const indented = line.split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")
-			this.debug(`RESPONSE\n  ${chalk.red(indented)}`)
+			const indented = line.split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n   ")
+			this.debug(`${chalk.bold.redBright("<<")} ${chalk.white(indented)}`)
 		}
 		const code = parseInt(line.substr(0, 3))
 		const message = line.substr(4)
