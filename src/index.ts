@@ -1,4 +1,4 @@
-import * as dns from "dns"
+import dns from "dns"
 import _debug from "debug"
 import _ from "lodash"
 import randomstring from "randomstring"

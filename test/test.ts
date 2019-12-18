@@ -1,4 +1,4 @@
-import { suite, test } from '@testdeck/jest';
+import { suite, test } from '@testdeck/jest'
 
 import { verify } from "../src/index"
 

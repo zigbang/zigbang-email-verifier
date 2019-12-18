@@ -1,6 +1,6 @@
-import * as net from "net"
+import net from "net"
 import _ from "lodash"
-import * as _debug from "debug"
+import debug from "debug"
 import chalk from "chalk"
 
 export interface SmtpClientOptions {
@@ -19,7 +19,7 @@ export class SmtpClient {
 
 	private responseQueue = new Queue()
 
-	private debug = _debug.debug("smtp")
+	private debug = debug.debug("smtp")
 
 	constructor(private options: SmtpClientOptions) {
 	}
@@ -88,7 +88,7 @@ class Queue {
 
 	private msgQueue: string[] = []
 	private evtResolve: ((value?: string | PromiseLike<string> | undefined) => void) | undefined = undefined
-	private debug = _debug.debug("queue")
+	private debug = debug.debug("queue")
 
 	add(line: string) {
 		this.debugLine(">>", line)
