@@ -85,13 +85,11 @@ async function resolveMx(emailHost: string) {
 }
 
 async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string) {
+	debug('VERIFY USING SMTP')
 	try {
-		debug('CONNECTED SMTP SERVER')
-
 		const ensure = async (promise: Promise<SmtpClientResponse>, value: number) => {
 			const response = await promise
 			if (response.code !== value) throw new Error("VERIFY_FAIL")
-			debug(response)
 			return response
 		}
 
@@ -100,14 +98,12 @@ async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string)
 		await ensure(netConn.from(opts.from), 250)
 		
 		const response = await netConn.to(opts.to)
-		debug(response)
 		if (response.code !== 250) return "NOT_EXIST"
 
 		if (opts.catchalltest === true) {
 			debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
 			const randomEmail = `${randomstring.generate(32)}@${emailHost}`
 			const response = await netConn.to(randomEmail)
-			debug(response)
 			if (response.code === 250) return "CATCH_ALL"
 		}
 		return "EXIST"

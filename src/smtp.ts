@@ -26,7 +26,7 @@ export class SmtpClient {
 
 	connect() {
 		this.debug(`${chalk.bold.cyanBright("||")} connect`)
-		
+
 		this.client = net.createConnection(this.options)
 		this.client.on("data", ((data: Buffer) => {
 			this.responseQueue.add(data.toString())
@@ -90,28 +90,37 @@ class Queue {
 	private evtResolve: ((value?: string | PromiseLike<string> | undefined) => void) | undefined = undefined
 	private debug = _debug.debug("queue")
 
-	add(msg: string) {
-		this.debug(`ADD\n  ${msg.toString().split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")}`)
+	add(line: string) {
+		this.debugLine(">>", line)
 
 		if (this.evtResolve) {
-			this.evtResolve(msg)
+			this.debugLine("<<", line)
+			this.evtResolve(line)
 			this.evtResolve = undefined
 		} else {
-			this.msgQueue.push(msg)
+			this.msgQueue.push(line)
 		}
 	}
 
 	flush(): Promise<string> {
-		this.debug("FLUSH")
-
 		return new Promise((resolve) => {
 			if (this.msgQueue.length) {
 				const results = _.clone(this.msgQueue)
 				this.msgQueue = []
-				return resolve(`${results[0]}`)
+				const line = results[0]
+				this.debugLine("<<", line)
+				return resolve(line)
 			}
 			this.evtResolve = resolve
 		})
+	}
+
+	private debugLine(direction: string, line: string) {
+		if (this.debug.enabled) {
+			const indented = line.split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n   ")
+			const color = direction === ">>" ? chalk.bold.blueBright : chalk.bold.redBright
+			this.debug(`${color(direction)} ${chalk.white(indented)}`)
+		}
 	}
 
 }
