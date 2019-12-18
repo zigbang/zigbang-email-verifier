@@ -23,7 +23,7 @@ export async function verify(opts: Options) {
 	}
 
 	let currentJob: string
-	let netConn: SmtpClient
+	let client: SmtpClient
 	let timedout = false
 
 	const mainJob = P.resolve((async () => {
@@ -34,11 +34,11 @@ export async function verify(opts: Options) {
 
 		if (timedout) return
 		currentJob = "CONN"
-		netConn = new SmtpClient({ port: 25, host: mx })
+		client = new SmtpClient({ port: 25, host: mx })
 
 		if (timedout) return
 		currentJob = "VERIFY"
-		return await verifySMTP(netConn, opts, emailHost)
+		return await verifySMTP(client, opts, emailHost)
 	})())
 
 	return new Promise<string>((resolve) => {
@@ -47,7 +47,7 @@ export async function verify(opts: Options) {
 			debug("TIMEOUT")
 			timedout = true
 			if (mainJob.isResolved()) return
-			if (netConn) netConn.close()
+			if (client) client.close()
 			
 			if (currentJob) return resolve(`${currentJob}_TIMEOUT`)
 			return resolve('UNKNOWN_TIMEOUT')
@@ -59,7 +59,7 @@ export async function verify(opts: Options) {
 			} catch (e) {
 				resolve(e.message)
 			} finally {
-				if (netConn) netConn.close()
+				if (client) client.close()
 			}
 		})()
 	})
