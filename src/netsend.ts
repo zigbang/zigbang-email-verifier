@@ -8,6 +8,11 @@ export interface SmtpClientOptions {
 	host: string
 }
 
+export interface SmtpClientResponse {
+	code: number
+	message: string
+}
+
 export class SmtpClient {
 
 	private client?: net.Socket
@@ -71,9 +76,9 @@ export class SmtpClient {
 			const indented = line.split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")
 			this.debug(`RESPONSE\n  ${chalk.red(indented)}`)
 		}
-		const code = line.substr(0, 3)
+		const code = parseInt(line.substr(0, 3))
 		const message = line.substr(4)
-		return { code, message }
+		return { code, message } as SmtpClientResponse
 	}
 
 }

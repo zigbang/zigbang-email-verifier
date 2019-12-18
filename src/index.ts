@@ -4,7 +4,7 @@ import _ from "lodash"
 import randomstring from "randomstring"
 import P from "bluebird"
 
-import { SmtpClient } from "./netsend"
+import { SmtpClient, SmtpClientResponse } from "./netsend"
 
 const debug = _debug.debug("email-verifier")
 
@@ -88,46 +88,28 @@ async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string)
 	try {
 		debug('CONNECTED SMTP SERVER')
 
-		let resmsg = await netConn.connect()
-		debug(resmsg)
-		if (resmsg.code !== '220') {
-			throw new Error("VERIFY_FAIL")
+		const ensure = async (promise: Promise<SmtpClientResponse>, value: number) => {
+			const response = await promise
+			if (response.code !== value) throw new Error("VERIFY_FAIL")
+			debug(response)
+			return response
 		}
 
-		// HELO
-		resmsg = await netConn.helo(opts.helo)
-		debug(resmsg)
-		if (resmsg.code !== '250') {
-			throw new Error("VERIFY_FAIL")
-		}
+		await ensure(netConn.connect(), 220)
+		await ensure(netConn.helo(opts.helo), 250)
+		await ensure(netConn.from(opts.from), 250)
+		
+		const response = await netConn.to(opts.to)
+		debug(response)
+		if (response.code !== 250) return "NOT_EXIST"
 
-		// MAIL FROM
-		resmsg = await netConn.from(opts.from)
-		debug(resmsg)
-		if (resmsg.code !== '250') {
-			throw new Error("VERIFY_FAIL")
+		if (opts.catchalltest === true) {
+			debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
+			const response = await netConn.to(generateRandomEmail(emailHost))
+			debug(response)
+			if (response.code === 250) return "CATCH_ALL"
 		}
-
-		// RCPT TO
-		resmsg = await netConn.to(opts.to)
-		debug(resmsg)
-		if (resmsg.code === '250') {
-			if (opts.catchalltest === true) {
-				// RCPT TO
-				debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
-				resmsg = await netConn.to(generateRandomEmail(emailHost))
-				debug(resmsg)
-				if (resmsg.code === '250') {
-					return 'CATCH_ALL'
-				} else {
-					return 'EXIST'
-				}
-			} else {
-				return 'EXIST'
-			}
-		} else {
-			return 'NOT_EXIST'
-		}
+		return "EXIST"
 	} catch (e) {
 		if (_debug.enabled(debug.namespace)) console.error(e)
 		throw new Error("VERIFY_FAIL")
