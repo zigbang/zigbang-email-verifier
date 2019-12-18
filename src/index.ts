@@ -4,7 +4,7 @@ import _ from "lodash"
 import randomstring from "randomstring"
 import P from "bluebird"
 
-import netsend, { Netsend } from "./netsend"
+import { SmtpClient } from "./netsend"
 
 const debug = _debug.debug("email-verifier")
 
@@ -23,7 +23,7 @@ export async function verify(opts: Options) {
 	}
 
 	let currentJob: string
-	let netConn: Netsend
+	let netConn: SmtpClient
 	let timedout = false
 
 	const mainJob = P.resolve((async () => {
@@ -34,7 +34,7 @@ export async function verify(opts: Options) {
 
 		currentJob = "CONN"
 		if (timedout) return
-		netConn = await netsend({ port: 25, host: mx })
+		netConn = new SmtpClient({ port: 25, host: mx })
 
 		currentJob = "VERIFY"
 		if (timedout) return
@@ -47,7 +47,7 @@ export async function verify(opts: Options) {
 			debug("TIMEOUT")
 			timedout = true
 			if (mainJob.isResolved()) return
-			if (netConn) netConn.end()
+			if (netConn) netConn.close()
 			
 			if (currentJob) return resolve(`${currentJob}_TIMEOUT`)
 			return resolve('UNKNOWN_TIMEOUT')
@@ -59,7 +59,7 @@ export async function verify(opts: Options) {
 			} catch (e) {
 				resolve(e.message)
 			} finally {
-				if (netConn) netConn.end()
+				if (netConn) netConn.close()
 			}
 		})()
 	})
@@ -84,46 +84,38 @@ async function resolveMx(emailHost: string) {
 	return exchange
 }
 
-async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
+async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string) {
 	try {
 		debug('CONNECTED SMTP SERVER')
 
-		let resmsg = await netConn.response()
+		let resmsg = await netConn.connect()
 		debug(resmsg)
 		if (resmsg.code !== '220') {
 			throw new Error("VERIFY_FAIL")
 		}
 
 		// HELO
-		let writeMsg = `HELO ${opts.helo}`
-		debug(writeMsg);
-		resmsg = await netConn.write(writeMsg)
+		resmsg = await netConn.helo(opts.helo)
 		debug(resmsg)
 		if (resmsg.code !== '250') {
 			throw new Error("VERIFY_FAIL")
 		}
 
 		// MAIL FROM
-		writeMsg = `MAIL FROM: <${opts.from}>`
-		debug(writeMsg);
-		resmsg = await netConn.write(writeMsg)
+		resmsg = await netConn.from(opts.from)
 		debug(resmsg)
 		if (resmsg.code !== '250') {
 			throw new Error("VERIFY_FAIL")
 		}
 
 		// RCPT TO
-		writeMsg = `RCPT TO: <${opts.to}>`
-		debug(writeMsg)
-		resmsg = await netConn.write(writeMsg)
+		resmsg = await netConn.to(opts.to)
 		debug(resmsg)
 		if (resmsg.code === '250') {
 			if (opts.catchalltest === true) {
 				// RCPT TO
 				debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
-				const writeMsg = `RCPT TO: <${generateRandomEmail(emailHost)}>`
-				debug(writeMsg)
-				resmsg = await netConn.write(writeMsg)
+				resmsg = await netConn.to(generateRandomEmail(emailHost))
 				debug(resmsg)
 				if (resmsg.code === '250') {
 					return 'CATCH_ALL'
@@ -140,7 +132,7 @@ async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
 		if (_debug.enabled(debug.namespace)) console.error(e)
 		throw new Error("VERIFY_FAIL")
 	} finally {
-		netConn.end()
+		netConn.close()
 	}
 }
 

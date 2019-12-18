@@ -1,61 +1,81 @@
 import * as net from "net"
 import _ from "lodash"
 import * as _debug from "debug"
+import chalk from "chalk"
 
-interface NetsendOptions {
+export interface SmtpClientOptions {
 	port: number
 	host: string
 }
 
-export interface Netsend {
-	write(msg: string): Promise<{ code: string, message: string }>
-	end(): Promise<void>
-	response(): Promise<{ code: string, message: string }>
-}
+export class SmtpClient {
 
-const debug = _debug.debug("netsend")
+	private client?: net.Socket
 
-export default async function netsend(options: NetsendOptions): Promise<Netsend> {
-	const responseQueue = new Queue()
-	const client = net.createConnection(options)
-	client.on("data", ((data: Buffer) => {
-		debug(`ADD\n  ${data.toString().split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")}`)
-		responseQueue.add(data.toString())
-	}))
-	client.on("end", () => {
-		debug("END client")
-	})
-	client.on("error", (err) => {
-		debug("ERROR")
-		if (_debug.enabled(debug.namespace)) console.error(err)
-	})
+	private responseQueue = new Queue()
 
-	return {
-		write: async (msg: string) => {
-			debug(`WRITE\n  ${msg}`)
-			client.write(`${msg}\r\n`)
+	private debug = _debug.debug("smtp")
 
-			const line = await responseQueue.flush()
-			debug(`RESPONSE ${line}`)
-			const code = line.substr(0, 3)
-			const message = line.substr(4)
-			return { code, message }
-		},
-		end: () => {
-			debug("END netsend")
-			return new Promise((resolve) => {
-				client.end(() => resolve)
-				client.destroy()
-			})
-		},
-		response: async () => {
-			const line = await responseQueue.flush()
-			debug(`RESPONSE ${line}`)
-			const code = line.substr(0, 3)
-			const message = line.substr(4)
-			return { code, message }
+	constructor(private options: SmtpClientOptions) {
+	}
+
+	connect() {
+		this.client = net.createConnection(this.options)
+		this.client.on("data", ((data: Buffer) => {
+			this.responseQueue.add(data.toString())
+		}))
+		this.client.on("end", () => {
+			this.debug("END client")
+		})
+		this.client.on("error", (err) => {
+			this.debug("ERROR")
+			if (this.debug.enabled) console.error(err)
+		})
+
+		return this.response()
+	}
+
+	close() {
+		this.debug("END netsend")
+		if (this.client) {
+			const client = this.client
+			this.client.end(() => client.destroy())
+			this.client = undefined
 		}
 	}
+
+	async helo(value: string) {
+		return this.write(`HELO ${value}`)
+	}
+
+	async from(value: string) {
+		return this.write(`MAIL FROM: <${value}>`)
+	}
+
+	async to(value: string) {
+		return this.write(`RCPT TO: <${value}>`)
+	}
+
+	private async write(msg: string) {
+		if (!this.client) throw new Error(`client is null`)
+
+		this.debug(`WRITE ${chalk.red(msg)}`)
+		this.client.write(`${msg}\r\n`)
+
+		return this.response()
+	}
+
+	private async response() {
+		const line = await this.responseQueue.flush()
+		if (this.debug.enabled) {
+			const indented = line.split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n  ")
+			this.debug(`RESPONSE\n  ${chalk.red(indented)}`)
+		}
+		const code = line.substr(0, 3)
+		const message = line.substr(4)
+		return { code, message }
+	}
+
 }
 
 class Queue {
