@@ -1,10 +1,10 @@
-import * as dns from "dns"
+import dns from "dns"
 import _debug from "debug"
 import _ from "lodash"
 import randomstring from "randomstring"
 import P from "bluebird"
 
-import netsend, { Netsend } from "./netsend"
+import { SmtpClient, SmtpClientResponse } from "./smtp"
 
 const debug = _debug.debug("email-verifier")
 
@@ -23,22 +23,22 @@ export async function verify(opts: Options) {
 	}
 
 	let currentJob: string
-	let netConn: Netsend
+	let client: SmtpClient
 	let timedout = false
 
 	const mainJob = P.resolve((async () => {
-		currentJob = "MXRECORD"
 		const [, emailHost] = opts.to.split('@')
 		if (timedout) return
-		const mx = await resolveMx(emailHost)
+		currentJob = "MXRECORD"
+		const host = await resolveMx(emailHost)
 
+		if (timedout) return
 		currentJob = "CONN"
-		if (timedout) return
-		netConn = await netsend({ port: 25, host: mx })
+		client = new SmtpClient({ host })
 
-		currentJob = "VERIFY"
 		if (timedout) return
-		return await verifySMTP(netConn, opts, emailHost)
+		currentJob = "VERIFY"
+		return await verifySMTP(client, opts, emailHost)
 	})())
 
 	return new Promise<string>((resolve) => {
@@ -47,7 +47,7 @@ export async function verify(opts: Options) {
 			debug("TIMEOUT")
 			timedout = true
 			if (mainJob.isResolved()) return
-			if (netConn) netConn.end()
+			if (client) client.close()
 			
 			if (currentJob) return resolve(`${currentJob}_TIMEOUT`)
 			return resolve('UNKNOWN_TIMEOUT')
@@ -59,7 +59,7 @@ export async function verify(opts: Options) {
 			} catch (e) {
 				resolve(e.message)
 			} finally {
-				if (netConn) netConn.end()
+				if (client) client.close()
 			}
 		})()
 	})
@@ -84,75 +84,35 @@ async function resolveMx(emailHost: string) {
 	return exchange
 }
 
-async function verifySMTP(netConn: Netsend, opts: Options, emailHost: string) {
+async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string) {
+	debug('VERIFY USING SMTP')
 	try {
-		debug('CONNECTED SMTP SERVER')
-
-		let resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) !== '220') {
-			throw new Error("VERIFY_FAIL")
+		const ensure = async (promise: Promise<SmtpClientResponse>, value: number) => {
+			const response = await promise
+			if (response.code !== value) throw new Error("VERIFY_FAIL")
+			return response
 		}
 
-		// HELO
-		let writeMsg = `HELO ${opts.helo}`
-		debug(writeMsg);
-		netConn.write(writeMsg)
+		await ensure(netConn.connect(), 220)
+		await ensure(netConn.helo(opts.helo), 250)
+		await ensure(netConn.from(opts.from), 250)
+		
+		const response = await netConn.to(opts.to)
+		if (response.code !== 250) return "NOT_EXIST"
 
-		resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) !== '250') {
-			throw new Error("VERIFY_FAIL")
+		if (opts.catchalltest === true) {
+			debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
+			const randomEmail = `${randomstring.generate(32)}@${emailHost}`
+			const response = await netConn.to(randomEmail)
+			if (response.code === 250) return "CATCH_ALL"
 		}
-
-		// MAIL FROM
-		writeMsg = `MAIL FROM: <${opts.from}>`
-		debug(writeMsg);
-		netConn.write(writeMsg)
-
-		resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) !== '250') {
-			throw new Error("VERIFY_FAIL")
-		}
-
-		// RCPT TO
-		writeMsg = `RCPT TO: <${opts.to}>`
-		debug(writeMsg)
-		netConn.write(writeMsg)
-
-		resmsg = await netConn.response()
-		debug(resmsg[0])
-		if (resmsg[0].substr(0, 3) === '250') {
-			if (opts.catchalltest === true) {
-				// RCPT TO
-				debug('MAILBOX EXIST..CHECKING FOR CATCHALL')
-				const writeMsg = `RCPT TO: <${generateRandomEmail(emailHost)}>`
-				debug(writeMsg)
-				netConn.write(writeMsg)
-
-				resmsg = await netConn.response()
-				if (resmsg[0].substr(0, 3) === '250') {
-					return 'CATCH_ALL'
-				} else {
-					return 'EXIST'
-				}
-			} else {
-				return 'EXIST'
-			}
-		} else {
-			return 'NOT_EXIST'
-		}
+		return "EXIST"
 	} catch (e) {
 		if (_debug.enabled(debug.namespace)) console.error(e)
 		throw new Error("VERIFY_FAIL")
 	} finally {
-		netConn.end()
+		netConn.close()
 	}
-}
-
-function generateRandomEmail(emailHost: string) {
-	return `${randomstring.generate(32)}@${emailHost}`
 }
 
 export function delay(ms: number) {
