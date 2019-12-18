@@ -27,7 +27,8 @@
     "chalk": "^3.0.0",
     "debug": "^4.1.1",
     "lodash": "^4.17.15",
-    "randomstring": "^1.1.5"
+    "randomstring": "^1.1.5",
+    "wait-queue": "^1.1.2"
   },
   "devDependencies": {
     "@testdeck/jest": "^0.0.6",

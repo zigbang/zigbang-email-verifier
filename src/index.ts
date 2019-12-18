@@ -30,11 +30,11 @@ export async function verify(opts: Options) {
 		const [, emailHost] = opts.to.split('@')
 		if (timedout) return
 		currentJob = "MXRECORD"
-		const mx = await resolveMx(emailHost)
+		const host = await resolveMx(emailHost)
 
 		if (timedout) return
 		currentJob = "CONN"
-		client = new SmtpClient({ port: 25, host: mx })
+		client = new SmtpClient({ host })
 
 		if (timedout) return
 		currentJob = "VERIFY"

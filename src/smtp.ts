@@ -2,10 +2,11 @@ import net from "net"
 import _ from "lodash"
 import debug from "debug"
 import chalk from "chalk"
+import WaitQueue from "wait-queue"
 
 export interface SmtpClientOptions {
-	port: number
 	host: string
+	port?: number
 }
 
 export interface SmtpClientResponse {
@@ -17,7 +18,7 @@ export class SmtpClient {
 
 	private client?: net.Socket
 
-	private responseQueue = new Queue()
+	private queue = new WaitQueue()
 
 	private debug = debug.debug("smtp")
 
@@ -27,9 +28,14 @@ export class SmtpClient {
 	connect() {
 		this.debug(`${chalk.bold.cyanBright("||")} connect`)
 
-		this.client = net.createConnection(this.options)
+		const _options = {
+			...this.options,
+			port: this.options.port ?? 25
+		}
+
+		this.client = net.createConnection(_options)
 		this.client.on("data", ((data: Buffer) => {
-			this.responseQueue.add(data.toString())
+			this.queue.push(data.toString())
 		}))
 		this.client.on("end", () => {
 			this.debug("END")
@@ -39,7 +45,7 @@ export class SmtpClient {
 			if (this.debug.enabled) console.error(err)
 		})
 
-		return this.response()
+		return this.read()
 	}
 
 	close() {
@@ -68,59 +74,18 @@ export class SmtpClient {
 		this.debug(`${chalk.bold.blueBright(">>")} ${chalk.white(msg)}`)
 		this.client.write(`${msg}\r\n`)
 
-		return this.response()
+		return this.read()
 	}
 
-	private async response() {
-		const line = await this.responseQueue.flush()
+	private async read() {
+		const line = await this.queue.shift() as string
 		if (this.debug.enabled) {
 			const indented = line.split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n   ")
 			this.debug(`${chalk.bold.redBright("<<")} ${chalk.white(indented)}`)
 		}
 		const code = parseInt(line.substr(0, 3))
-		const message = line.substr(4)
+		const message = line.substr(4) // good enough for now
 		return { code, message } as SmtpClientResponse
-	}
-
-}
-
-class Queue {
-
-	private msgQueue: string[] = []
-	private evtResolve: ((value?: string | PromiseLike<string> | undefined) => void) | undefined = undefined
-	private debug = debug.debug("queue")
-
-	add(line: string) {
-		this.debugLine(">>", line)
-
-		if (this.evtResolve) {
-			this.debugLine("<<", line)
-			this.evtResolve(line)
-			this.evtResolve = undefined
-		} else {
-			this.msgQueue.push(line)
-		}
-	}
-
-	flush(): Promise<string> {
-		return new Promise((resolve) => {
-			if (this.msgQueue.length) {
-				const results = _.clone(this.msgQueue)
-				this.msgQueue = []
-				const line = results[0]
-				this.debugLine("<<", line)
-				return resolve(line)
-			}
-			this.evtResolve = resolve
-		})
-	}
-
-	private debugLine(direction: string, line: string) {
-		if (this.debug.enabled) {
-			const indented = line.split("\r\n").filter((value) => !_.isEmpty(value)).join("\r\n   ")
-			const color = direction === ">>" ? chalk.bold.blueBright : chalk.bold.redBright
-			this.debug(`${color(direction)} ${chalk.white(indented)}`)
-		}
 	}
 
 }
