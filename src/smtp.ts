@@ -56,19 +56,19 @@ export class SmtpClient {
 		this.client = undefined
 	}
 
-	async helo(value: string) {
+	helo(value: string) {
 		return this.write(`HELO ${value}`)
 	}
 
-	async from(value: string) {
+	from(value: string) {
 		return this.write(`MAIL FROM: <${value}>`)
 	}
 
-	async to(value: string) {
+	to(value: string) {
 		return this.write(`RCPT TO: <${value}>`)
 	}
 
-	private async write(msg: string) {
+	private write(msg: string) {
 		if (!this.client) throw new Error(`client is null`)
 
 		this.debug(`${chalk.bold.blueBright(">>")} ${chalk.white(msg)}`)
