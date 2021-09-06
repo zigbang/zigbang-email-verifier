@@ -13,7 +13,9 @@ class TestSuite {
 			from: `cs@${host}`,
 			to: `cs@${host}`
 		})
-		expect(result).toBe('EXIST')
+		expect(result).toStrictEqual({
+			resultCode: "EXIST"
+		})
 	}
 
 	@test("EXIST with catchall")
@@ -25,7 +27,9 @@ class TestSuite {
 			to: `cs@${host}`,
 			catchalltest: true
 		})
-		expect(result).toBe('EXIST')
+		expect(result).toStrictEqual({
+			resultCode: "EXIST"
+		})
 	}
 
 	@test(`INVALID to`)
@@ -36,7 +40,9 @@ class TestSuite {
 			from: `invalid@${host}`,
 			to: `invalid`
 		})
-		expect(result).toBe('INVALID')
+		expect(result).toStrictEqual({
+			resultCode: "INVALID"
+		})
 	}
 
 	@test("MXRECORD_FAIL invalid host")
@@ -47,7 +53,10 @@ class TestSuite {
 			from: `invalid@${host}`,
 			to: `invalid@${host}`
 		})
-		expect(result).toBe("MXRECORD_FAIL")
+		expect(result).toStrictEqual({
+			resultCode: "MXRECORD_FAIL",
+			reason: "queryMx ENOTFOUND invalidhost.dotcom"
+		})
 	}
 
 	@test("MXRECORD_TIMEOUT")
@@ -59,7 +68,9 @@ class TestSuite {
 			to: `invalid@${host}`,
 			timeout: 1
 		})
-		expect(result).toBe("MXRECORD_TIMEOUT")
+		expect(result).toStrictEqual({
+			resultCode: "MXRECORD_TIMEOUT"
+		})
 	}
 
 	@test("VERIFY_TIMEOUT")
@@ -71,6 +82,8 @@ class TestSuite {
 			to: `invalid@${host}`,
 			timeout: 100	// not a good method thou
 		})
-		expect(result).toBe("VERIFY_TIMEOUT")
+		expect(result).toStrictEqual({
+			resultCode: "VERIFY_TIMEOUT"
+		})
 	}
 }
