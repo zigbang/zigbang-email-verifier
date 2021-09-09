@@ -13,9 +13,7 @@ class TestSuite {
 			from: `cs@${host}`,
 			to: `cs@${host}`
 		})
-		expect(result).toStrictEqual({
-			resultCode: "EXIST"
-		})
+		expect(result).toBe('EXIST')
 	}
 
 	@test("EXIST with catchall")
@@ -27,9 +25,7 @@ class TestSuite {
 			to: `cs@${host}`,
 			catchalltest: true
 		})
-		expect(result).toStrictEqual({
-			resultCode: "EXIST"
-		})
+		expect(result).toBe('EXIST')
 	}
 
 	@test(`INVALID to`)
@@ -40,9 +36,7 @@ class TestSuite {
 			from: `invalid@${host}`,
 			to: `invalid`
 		})
-		expect(result).toStrictEqual({
-			resultCode: "INVALID"
-		})
+		expect(result).toBe('INVALID')
 	}
 
 	@test("MXRECORD_FAIL invalid host")
@@ -53,10 +47,7 @@ class TestSuite {
 			from: `invalid@${host}`,
 			to: `invalid@${host}`
 		})
-		expect(result).toStrictEqual({
-			resultCode: "MXRECORD_FAIL",
-			reason: "queryMx ENOTFOUND invalidhost.dotcom"
-		})
+		expect(result).toBe("MXRECORD_FAIL")
 	}
 
 	@test("MXRECORD_TIMEOUT")
@@ -68,9 +59,7 @@ class TestSuite {
 			to: `invalid@${host}`,
 			timeout: 1
 		})
-		expect(result).toStrictEqual({
-			resultCode: "MXRECORD_TIMEOUT"
-		})
+		expect(result).toBe("MXRECORD_TIMEOUT")
 	}
 
 	@test("VERIFY_TIMEOUT")
@@ -82,8 +71,21 @@ class TestSuite {
 			to: `invalid@${host}`,
 			timeout: 100	// not a good method thou
 		})
-		expect(result).toStrictEqual({
-			resultCode: "VERIFY_TIMEOUT"
+		expect(result).toBe("VERIFY_TIMEOUT")
+	}
+
+	@test("opts.responseType is reason")
+	async responseTypeReason() {
+		const host = "invalidhost.dotcom"
+		const result = await verify({
+			helo: host,
+			from: `invalid@${host}`,
+			to: `invalid@${host}`,
+			responseType: "reason"
 		})
+		expect(result).toStrictEqual({
+			resultCode: "MXRECORD_FAIL",
+			reason: "queryMx ENOTFOUND invalidhost.dotcom"
+		})	
 	}
 }

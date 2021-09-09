@@ -8,29 +8,32 @@ import { SmtpClient, SmtpClientResponse } from "./smtp"
 
 const debug = _debug.debug("email-verifier")
 
+type ResponseType = "simple" | "reason"
+
 export interface Options {
 	helo: string
 	from: string
 	to: string
 	catchalltest?: boolean
 	timeout?: number
+	responseType?: ResponseType
 }
 
 export interface VerifyResult {
 
 	/**
-	 * 검증 결과 
+	 * result code, ie. INVALID, EXIST, etc
 	 */
 	resultCode: string
 
 	/**
-	 * 검증 실패 시 실패 원인
+	 * reason for failure
 	 */
 	reason?: string
 }
 
 /**
- * 검증 실패 시 사용
+ * Error for verify failure 
  *
  * ```ts
  * catch (e) {
@@ -52,12 +55,12 @@ class VerifyError extends Error {
 	}
 }
 
-export async function verify(opts: Options): Promise<VerifyResult> {
+export async function verify(opts: Options): Promise<string | VerifyResult> {
+	const responseType = opts.responseType ?? "simple"
+
 	const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 	if (!emailRegex.test(opts.to)) {
-		return {
-			resultCode: "INVALID",
-		}
+		return makeResponse(responseType, { resultCode: "INVALID" })
 	}
 
 	let currentJob: string
@@ -65,9 +68,7 @@ export async function verify(opts: Options): Promise<VerifyResult> {
 	let timedout = false
 
 	const mainJob = P.resolve((async () => {
-		const timedoutResult = {
-			resultCode: "UNKNOWN_TIMEOUT",
-		}
+		const timedoutResult = makeResponse(responseType, { resultCode: "UNKNOWN_TIMEOUT" })
 
 		const [, emailHost] = opts.to.split('@')
 		if (timedout) return timedoutResult
@@ -80,10 +81,12 @@ export async function verify(opts: Options): Promise<VerifyResult> {
 
 		if (timedout) return timedoutResult
 		currentJob = "VERIFY"
-		return await verifySMTP(client, opts, emailHost)
+
+		const result = await verifySMTP(client, opts, emailHost)
+		return makeResponse(responseType, result)
 	})())
 
-	return new Promise<VerifyResult>((resolve) => {
+	return new Promise<string | VerifyResult>((resolve) => {
 		const timeout = opts.timeout ? opts.timeout : 5000
 		setTimeout(() => {
 			debug("TIMEOUT")
@@ -92,13 +95,9 @@ export async function verify(opts: Options): Promise<VerifyResult> {
 			if (client) client.close()
 			
 			if (currentJob) {
-				return resolve({ 
-					resultCode: `${currentJob}_TIMEOUT`,
-				})
+				return resolve(makeResponse(responseType, { resultCode: `${currentJob}_TIMEOUT` }))
 			}
-			return resolve({
-				resultCode: "UNKNOWN_TIMEOUT",
-			})
+			return resolve(makeResponse(responseType, { resultCode: "UNKNOWN_TIMEOUT" }))
 		}, timeout);
 
 		(async () => {
@@ -106,14 +105,14 @@ export async function verify(opts: Options): Promise<VerifyResult> {
 				resolve(await mainJob)
 			} catch (e) {
 				if (e instanceof VerifyError) {
-					resolve({
+					resolve(makeResponse(responseType, {
 						resultCode: e.resultCode,
 						reason: e.reason
-					})
+					}))
 				} else {
-					resolve({
+					resolve(makeResponse(responseType, {
 						resultCode: e.message
-					})
+					}))
 				}
 			} finally {
 				if (client) client.close()
@@ -185,4 +184,15 @@ async function verifySMTP(netConn: SmtpClient, opts: Options, emailHost: string)
 
 export function delay(ms: number) {
 	return new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+function makeResponse(responseType: ResponseType, result: VerifyResult) {
+	switch (responseType) {
+		case "simple":
+			return result.resultCode
+		case "reason":
+			return result
+		default:
+			throw new Error("no such reasponse type")
+	}
 }
