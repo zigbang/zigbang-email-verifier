@@ -73,4 +73,19 @@ class TestSuite {
 		})
 		expect(result).toBe("VERIFY_TIMEOUT")
 	}
+
+	@test("opts.responseType is reason")
+	async responseTypeReason() {
+		const host = "invalidhost.dotcom"
+		const result = await verify({
+			helo: host,
+			from: `invalid@${host}`,
+			to: `invalid@${host}`,
+			responseType: "reason"
+		})
+		expect(result).toStrictEqual({
+			resultCode: "MXRECORD_FAIL",
+			reason: "queryMx ENOTFOUND invalidhost.dotcom"
+		})	
+	}
 }
