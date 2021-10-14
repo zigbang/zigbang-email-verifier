@@ -49,5 +49,8 @@
 		"build": "tsc",
 		"test": "jest",
 		"publish": "npm publish"
+	},
+	"publishConfig": {
+		"registry": "https://registry.npmjs.org"
 	}
 }
