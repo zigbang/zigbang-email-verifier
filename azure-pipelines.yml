@@ -33,7 +33,7 @@ jobs:
       sudo rm -rf ./src
     displayName: 'Build'
   - script: |
-      yarn publish
+      yarn publish-package
     displayName: 'Deploy'
 
 - job: deploy_dev
@@ -54,5 +54,5 @@ jobs:
       sudo rm -rf ./src
     displayName: 'Build'
   - script: |
-      yarn publish
+      yarn publish-package
     displayName: 'Deploy'
