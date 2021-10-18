@@ -1,0 +1,58 @@
+trigger:
+  branches:
+    include:
+      - master
+      - deploy/dev
+  paths:
+    exclude:
+      - README.md
+      - LICENSE
+      - test/*
+
+pr: none
+
+variables:
+  - group: AzureKeyVaults
+
+jobs:
+- job: deploy_prod
+  pool:
+    name: Default
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+  steps:
+  - checkout: self
+    clean: true
+    persistCredentials: true
+  - script: |
+      sudo npm install -g gulp gulp-cli
+      echo "//registry.npmjs.org/:_authToken=$(NPM-TOKEN)" > ~/.npmrc
+      sudo yarn
+      gulp set-new-npm-version-prod 
+      yarn build
+      sudo rm -rf ./node_modules
+      sudo rm -rf ./src
+    displayName: 'Build'
+  - script: |
+      yarn publish-package
+    displayName: 'Deploy'
+
+- job: deploy_dev
+  pool:
+    name: Default
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/deploy/dev')
+  steps:
+  - checkout: self
+    clean: true
+    persistCredentials: true
+  - script: |
+      sudo npm install -g gulp gulp-cli
+      echo "//registry.npmjs.org/:_authToken=$(NPM-TOKEN)" > ~/.npmrc
+      sudo yarn
+      gulp set-new-npm-version-dev 
+      yarn build
+      sudo rm -rf ./node_modules
+      sudo rm -rf ./src
+    displayName: 'Build'
+  - script: |
+      yarn publish-package
+    displayName: 'Deploy'
